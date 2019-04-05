@@ -1,0 +1,20 @@
+PROJECT_NAME=OVCA_TargetedSeq_BIH
+INPUT_FOLDER=../../Data/FreeBayesCalls
+OUTPUT_FOLDER=../../Data/Processed/FreeBayesCalls
+
+# compress and add Tabix indices
+
+for ff in ${INPUT_FOLDER}/*.freebayes.norm.OVK.gt.vcf.gz; do
+   sample=$(basename $ff .freebayes.norm.OVK.gt.vcf.gz)
+   SNP_FILE=$ff
+   OUTPUT_FILE=${OUTPUT_FOLDER}/passed_variants_${sample}.vcf.gz
+   
+   # We remove variants at 2:215632255/215632256 which are known SNPs with >> 1% population frequency and which cause problems on merging with bcftools
+   bcftools view --include "QUAL>10 & INFO/DP > 50" $SNP_FILE | grep -E -v "2\s+215632255|215632256" | vcf-sort | bgzip -c > $OUTPUT_FILE
+   tabix -p vcf $OUTPUT_FILE
+done
+
+# merge samples in one VCF file
+bcftools merge --force-samples -m none ${OUTPUT_FOLDER}/passed_variants*.vcf.gz | vcf-sort | bgzip -c > ${OUTPUT_FOLDER}/${PROJECT_NAME}_FreeBayes_calls_merged.vcf.gz
+tabix -p vcf ${OUTPUT_FOLDER}/${PROJECT_NAME}_FreeBayes_calls_merged.vcf.gz
+

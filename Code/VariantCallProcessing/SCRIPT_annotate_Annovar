@@ -1,0 +1,9 @@
+DATA_FOLDER=../../Data/Processed/FreeBayesCalls
+ANNOVAR_OUTPUT=${DATA_FOLDER}/OVCA_TargetedSeq_BIH_FreeBayes_calls_merged_ANNOVAR
+ANNOVAR_INPUT_FILE=${DATA_FOLDER}/OVCA_TargetedSeq_BIH_FreeBayes_calls_merged.vcf.gz
+
+
+ANNOVAR_EXECUTABLE=/data_genome1/SharedSoftware/Annovar/annovar/v2018/table_annovar.pl
+ANNOVAR_DB=/data_genome1/SharedSoftware/Annovar/humandb_2018-10_hg37
+# annotate variants
+$ANNOVAR_EXECUTABLE -vcfinput $ANNOVAR_INPUT_FILE $ANNOVAR_DB -buildver hg19 -out $ANNOVAR_OUTPUT -remove -protocol  refGene,phastConsElements46way,phastConsElements100way,wgRna,targetScanS,dgvMerged,gwasCatalog,genomicSuperDups,esp6500si_all,1000g2015aug_all,snp138,snp138NonFlagged,dbnsfp33a,caddgt10,clinvar_20180603 -operation g,r,r,r,r,r,r,r,f,f,f,f,f,f,f -nastring .

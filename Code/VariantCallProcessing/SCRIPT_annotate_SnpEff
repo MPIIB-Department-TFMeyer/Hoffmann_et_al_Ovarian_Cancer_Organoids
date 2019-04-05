@@ -1,0 +1,13 @@
+PROJECT_NAME=OVCA_TargetedSeq_BIH
+DATA_FOLDER=../../Data/Processed/FreeBayesCalls
+
+# Annotate variants with SnpEff
+java -Xmx8g -jar /data_genome1/SharedSoftware/SnpEff/snpEff.jar -c /data_genome1/SharedSoftware/SnpEff/snpEff.config GRCh37.75 ${DATA_FOLDER}/${PROJECT_NAME}_FreeBayes_calls_merged.vcf.gz  > ${DATA_FOLDER}/${PROJECT_NAME}_FreeBayes_calls_merged_SnpEff.vcf
+
+# Cast table to wide format so that each sample has its own column and each row is one variant. This also collapses
+# variant in the same gene and reports the one with the highest impact.
+python ./extract_SnpEff_annotations.py -o ${DATA_FOLDER}/${PROJECT_NAME}_FreeBayes_calls_merged_SnpEff_table.txt ${DATA_FOLDER}/${PROJECT_NAME}_FreeBayes_calls_merged_SnpEff.vcf 
+
+bgzip ${DATA_FOLDER}/${PROJECT_NAME}_FreeBayes_calls_merged_SnpEff.vcf
+tabix -p vcf ${DATA_FOLDER}/${PROJECT_NAME}_FreeBayes_calls_merged_SnpEff.vcf.gz
+
