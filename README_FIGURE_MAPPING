@@ -1,0 +1,7 @@
+Data files required for analysis are provided in Data folder and referenced from R scripts in Code/...
+ 
+Fig. 2D, S2C
+- Gene expression data was preprocessed (Code/GeneExpressionMicroarray/Preprocessing_and_QC.Rmd) and differential gene expression analyzed using LIMMA (Code/GeneExpressionMicroarray/Expression_analysis.Rmd)
+- MDS plot in 2D was generated as described in Code/GeneExpressionMicroarray/Expression_analysis.Rmd. File is in Results/GeneExpression/MDS_plot.pdf
+- Heatmap in S2C was generated as described in Code/GeneExpressionMicroarray/Visualizations.Rmd. File is in Results/GeneExpression/Heatmap_Spearman_correlation_organoids_only.pdf
+

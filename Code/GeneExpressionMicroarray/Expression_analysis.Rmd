@@ -1,0 +1,352 @@
+---
+title: "OvCa Tumor tissue and organoids  - Differential gene expression analysis"
+author: "Hilmar Berger"
+output: 
+ html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: false
+    number_sections: true
+    code_folding: hide
+    
+pdf_document:
+    fig_caption: true
+date: "`r format(Sys.time(), '%d %B, %Y %H:%M:%S')`"
+---
+
+```{r,  results='hide', messages=FALSE}
+rm(list=ls())
+
+library(limma)
+library(reshape2)
+library(pheatmap)
+library(xtable)
+suppressMessages(library(gplots))
+library(impute)
+suppressMessages(library(data.table))
+library(ggplot2)
+library(naturalsort)
+library(ggrepel)
+
+load("../../Data/Processed/Tumor_organoids_micro_array_preprocessed_data.Rdata")
+
+result_folder = "../../Results/GeneExpression"
+if (!file.exists(result_folder)) dir.create(result_folder, recursive=T)
+
+```
+
+# Data overview
+
+This document describes the differential gene expression analysis of microarray data from ovarian cancer tumor and normal tissue from the same tissue and corresponding organoids samples (Mirjana Kessler, Karen Hoffmann) analyzed using a single-color hybridization. 
+
+## MDS on normalized data
+
+### All samples
+
+```{r, MDS,  fig.width=8, fig.height=8}
+#cp = palette(rainbow(8))
+cp = c("Organoid Normal"="black", "Tissue Normal" = "green","Organoid Tumor"= "red", "Tissue Tumor" = "blue")
+data_inp = t(normalized$E) 
+
+d <- dist(data_inp) # euclidean distances between the rows
+fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
+
+# plot solution
+x <- fit$points[,1]
+y <- fit$points[,2]
+gg = factor(paste(ed[rownames(data_inp),]$Condition, ed[rownames(data_inp),]$Site))
+col=cp[as.character(gg)]
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2", main="Metric MDS, all samples", type="p", pch=as.numeric(factor(ed[rownames(data_inp),]$Experiment))+19, col=col, xlim=c(min(x), max(x)+100)  )
+text(x,y,labels=ed[rownames(data_inp),]$PublicationID_verbose, col=col, adj=-0.05 )
+abline(h=0, lty=2)
+abline(v=0, lty=2)
+```
+
+Conclusion: Main effect is difference between organoids and tissue.
+
+### All samples without special +/- Wnt media experiment
+
+
+```{r, MDS2,  fig.width=8, fig.height=8}
+#cp = palette(rainbow(8))
+cp = c("Organoid Normal"="black", "Tissue Normal" = "darkgreen","Organoid Tumor"= "red", "Tissue Tumor" = "blue")
+
+sel_samples = rownames(subset(ed, DS_TumorOrganoids==1))
+data_inp = t(normalized$E[, sel_samples]) 
+
+d <- dist(data_inp) # euclidean distances between the rows
+fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
+
+# plot solution
+x <- fit$points[,1]
+y <- fit$points[,2]
+gg = factor(paste(ed[rownames(data_inp),]$Condition, ed[rownames(data_inp),]$Site))
+col=cp[as.character(gg)]
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2", main="Metric MDS, selected samples", type="p", pch=as.numeric(factor(ed[rownames(data_inp),]$Experiment))+19, col=col, xlim=c(min(x), max(x)+100)  )
+text(x,y,labels=ed[rownames(data_inp),]$PublicationID_verbose, col=col, adj=-0.05 )
+abline(h=0, lty=2)
+abline(v=0, lty=2)
+```
+
+```{r, width=10, height=8}
+pdf(file=file.path(result_folder, "MDS_plot.pdf"), height=8, width=8)
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2", main="Metric MDS, all samples", type="p", pch=as.numeric(factor(ed[rownames(data_inp),]$Experiment))+19, col=col, xlim=c(min(x), max(x)+100)  )
+text(x,y,labels=ed[rownames(data_inp),]$PublicationID_verbose, col=col, adj=-0.05 )
+abline(h=0, lty=2)
+abline(v=0, lty=2)
+dev.off()
+
+
+pdf(file=file.path(result_folder, "MDS_plot_v2.pdf"), height=8, width=10)
+df = data.frame(x,y,col=col, label=ed[rownames(data_inp),]$PublicationID_verbose, group = gg)
+p = ggplot(df, aes(x=x, y=y, col=group, label=label)) + geom_point() + xlab("Coordinate 1") + ylab("Coordinate 2") + ggtitle("Metric MDS on tumor and normal organoids and tissues") + geom_text_repel()
+print(p)
+dev.off()
+
+```
+
+
+### Organoid samples only
+
+```{r,  fig.width=8, fig.height=8}
+#cp = palette(rainbow(8))
+cp = c("Organoid Normal"="black", "Tissue Normal" = "green","Organoid Tumor"= "red", "Tissue Tumor" = "blue")
+
+sel_samples = rownames(subset(ed, Condition=="Organoid"))
+data_inp = t(normalized$E[, sel_samples]) 
+
+d <- dist(data_inp) # euclidean distances between the rows
+fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
+
+# plot solution
+x <- fit$points[,1]
+y <- fit$points[,2]
+gg = factor(paste(ed[rownames(data_inp),]$Condition, ed[rownames(data_inp),]$Site))
+col=cp[as.character(gg)]
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2", main="Metric MDS, all samples", type="p", pch=as.numeric(factor(ed[rownames(data_inp),]$Experiment))+19, col=col, xlim=c(min(x), max(x)+100)  )
+text(x,y,labels=ed[rownames(data_inp),]$PublicationID_verbose, col=col, adj=-0.05 )
+abline(h=0, lty=2)
+abline(v=0, lty=2)
+```
+
+
+### Tissue samples only
+
+```{r,  fig.width=8, fig.height=8}
+#cp = palette(rainbow(8))
+cp = c("Organoid Normal"="black", "Tissue Normal" = "green","Organoid Tumor"= "red", "Tissue Tumor" = "blue")
+
+sel_samples = rownames(subset(ed, Condition=="Tissue"))
+data_inp = t(normalized$E[, sel_samples]) 
+
+d <- dist(data_inp) # euclidean distances between the rows
+fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
+
+# plot solution
+x <- fit$points[,1]
+y <- fit$points[,2]
+gg = factor(paste(ed[rownames(data_inp),]$Condition, ed[rownames(data_inp),]$Site))
+col=cp[as.character(gg)]
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2", main="Metric MDS, all samples", type="p", pch=as.numeric(factor(ed[rownames(data_inp),]$Experiment))+19, col=col, xlim=c(min(x), max(x)+100)  )
+text(x,y,labels=ed[rownames(data_inp),]$PublicationID_verbose, col=col, adj=-0.05 )
+abline(h=0, lty=2)
+abline(v=0, lty=2)
+```
+
+The sample *Tissue Normal 217* is an outlier (see also preprocessing & QC documentation) and could possibly be exlcuded from analysis.
+
+Also, tumor tissue and organoids from patient 64 cluster together with normal samples rather than with the rest of the tumors. It should be checked if those samples represent tumor or normal cells. 
+
+# Differential Expression Analysis
+
+## Expression analysis outline
+
+Micro array expression data from MB189 was preprocessed as described in a separate document. 
+
+Expression data will be analysed in the following way:
+
+* For each of the selected comparisons we compare the replicates of the target condition to the correspondig control using LIMMA, producing differential expression statistics for all genes and comparisons. 
+* We will analyze the differences between tumor tissue and corresponding organoid in a paired fashion
+
+All result tables are available as separate Excel files. 
+
+## Experimental Design 
+
+```{r}
+ftable(ed$Condition, ed$Site, dnn=c("Condition","Site"))
+ftable(ed$patient, ed$Condition, ed$Site, dnn=c("Patient","Condition","Site"))
+```
+
+
+
+## Differential expression analysis
+
+```{r, dge_analysis,  results='hide'}
+# remove duplicate and control probes before DE
+#dups = duplicated.default(normalized$genes$ProbeName)
+normalized_avg = avereps(normalized, normalized$genes$ProbeName)
+controls =normalized_avg$genes$ControlType!=0
+normalized_unfiltered = normalized
+normalized = normalized_avg[!(controls),]
+
+all_results = list()
+all_fits = list()
+all_designs = list()
+
+```
+
+The following comparisons are performed: 
+
+  - Tumor Organoids vs. Tumor tissue, paired
+  - Tumor Organoids vs. Normal Organoids, paired (n=2)
+  - Normal Organoids vs. Normal Tissue, unpaired ( n=2(excluding outlier) or n=3(all) )
+  - Tumor Tissue vs. Normal Tissue, unpaired (n=8+3)
+
+```{r, dge_analysis_uv, results='hide'}
+#############################################
+# unpaired comparisons
+#############################################
+sel_samples = rownames(ed)
+edata = normalized[,sel_samples]
+TS = with(ed[sel_samples,], factor(make.names(paste(Condition,Site))) )
+ff = formula(~ 0 + TS)
+
+design = model.matrix(ff)
+colnames(design) = gsub("^TS","",colnames(design), perl=T)
+fit <- lmFit(edata,design)
+contr.matrix = makeContrasts( Norm_Organoid_vs_Tissue = Organoid.Normal - Tissue.Normal,
+                              Tm_Tissue_vs_N_Tissue = Tissue.Tumor - Tissue.Normal,
+                              levels=design)
+
+fit2 <- contrasts.fit(fit, contr.matrix)
+fit2 <- eBayes(fit2)
+
+for (c in colnames(contr.matrix)) {
+  res = topTable(fit2, coef=c, adjust="BH", number=nrow(edata), confint = T)
+  all_results[[c]] = res
+}
+
+```
+
+```{r}
+################################################################################
+# Tumor Organoids vs. Tumor Tissue
+################################################################################
+sel_samples = rownames(subset(ed,Site=="Tumor")) 
+edata = normalized[,sel_samples]
+condition = factor(ed[sel_samples,]$Condition, levels=c("Organoid","Tissue"))
+ExpID = factor(ed[sel_samples,]$patient)
+ff = formula(~ ExpID + condition)
+
+design = model.matrix(ff,  contrasts.arg=list(condition=contr.SAS) )
+
+fit <- lmFit(edata,design)
+fit <- eBayes(fit)
+res = topTable(fit, coef="condition1", adjust="BH", number=nrow(edata), confint = T)
+
+all_results[["Tm_Organoid_vs_Tissue_paired"]] = res
+
+################################################################################
+# Tumor Organoids vs. Normal Organoids
+################################################################################
+sel_samples = rownames(subset(ed,Condition=="Organoid" & patient %in% c(1,2)))
+edata = normalized[,sel_samples]
+site = factor(ed[sel_samples,]$Site, levels=c("Tumor","Normal"))
+ExpID = factor(ed[sel_samples,]$patient)
+ff = formula(~ ExpID + site)
+
+design = model.matrix(ff,  contrasts.arg=list(site=contr.SAS) )
+
+fit <- lmFit(edata,design)
+fit <- eBayes(fit)
+res = topTable(fit, coef="site1", adjust="BH", number=nrow(edata), confint = T)
+
+all_results[["Tm_vs_normal_organoid_paired"]] = res
+
+```
+
+
+### Volcano plots
+
+For each comparison, the distribution of the fold change (on a log2 scale) and adjusted p-value (on reverse logarithmical scale) is shown in a volcano plot. The red line denotes the FDR cutoff of 0.05. 
+
+```{r, DE_volcano,  results="hide", fig.width=18,fig.height = 12 }
+all_target_conditions = names(all_results)
+par(mfrow=c(2,2))
+all_GSA_results = list()
+for (tc in all_target_conditions) {
+  r = all_results[[tc]]
+  plot(r$logFC, -log10(r$adj.P.Val),xlab="log2 Fold Change",ylab="-log10(adj. p-val)", ylim=c(0,max(2,max(-log10(r$adj.P.Val),na.rm=T))))
+  title(main=tc, sub=paste("(",nrow(subset(r, adj.P.Val < 0.05))," signif. DE genes)",sep="") )
+  abline(h=-log10(0.05),col="red")
+  abline(v=c(-1,1), lty=2, lwd=1)
+}
+```
+
+## Result tables
+
+```{r, DE_combined,  results="hide"}
+all_DE_results_tmp = list()
+for (tc in all_target_conditions) {
+  tmp = all_results[[tc]]
+  tmp$condition = tc
+  all_DE_results_tmp[[tc]] = tmp
+}
+all_DE_results_ts = do.call(rbind, all_DE_results_tmp)
+
+all_DE_results_ts$DE_class = ifelse(all_DE_results_ts$adj.P.Val>0.05, "n.s.", ifelse(all_DE_results_ts$logFC > 0,"Up","Down"))
+
+agg_fun = function(x) ifelse("Down" %in% x, "Down",ifelse("Up" %in% x, "Up","n.s."))
+all_DE_results_sw = dcast(all_DE_results_ts, GeneSymbol ~ condition, value.var="DE_class", fun.aggregate=agg_fun)
+all_DE_results_FC_p = dcast.data.table(as.data.table(all_DE_results_ts), GeneSymbol+ProbeName ~ condition, value.var=c("logFC","P.Value","adj.P.Val"))
+```
+
+```{r, echo=FALSE}
+all_output_txt_files = list()
+all_output_excel_files = list()
+output_file_prefix = paste(result_folder,"Differential_expression_results_", sep="/")
+selected_cols = c("ProbeName", "GeneSymbol", "SystematicName", "GeneName","EntrezID","logFC","AveExpr","t","P.Value","adj.P.Val","GencodeV25MappingStatus","GeneSymbol_Gencode","Transcript_Type" )
+for (tc in all_target_conditions) {
+  filename = paste(output_file_prefix, tc, ".txt", sep="" )
+  write.table(all_results[[tc]][,selected_cols], file= filename, row.names=F , sep="\t", dec=".")
+  all_output_txt_files[[paste("DGE",tc)]] = filename
+}
+
+tmp = as.data.frame(normalized$E)
+colorder = order(ed[colnames(normalized$E),]$patient, ed[colnames(normalized$E),]$Condition)
+colnames(tmp) = ed[colnames(normalized$E),]$ShortID
+rownames(tmp) = normalized$genes$ProbeName
+tmp = tmp[, colorder]
+
+tmp$GeneSymbol = normalized$genes$GeneSymbol
+tmp$GeneDescription = normalized$genes$GeneName
+tmp$EntrezID = normalized$genes$EntrezID
+tmp$GencodeV25MappingStatus = normalized$genes$GencodeV25MappingStatus
+tmp = tmp[naturalorder(tmp$GeneSymbol),]
+filename = paste(result_folder,"Normalized_expression_data.txt",sep="/")
+write.table(tmp, file=filename,sep="\t",col.names=NA)
+
+all_output_txt_files[["Normalized expression values"]] = filename
+```
+
+```{r}
+output_file = paste(result_folder,"DGE_analysis_image.Rdata", sep="/")
+save(all_results, all_fits, all_designs, normalized, file=output_file)
+```
+
+The following files have been written:
+```{r}
+all_txt_files = as.data.frame(t(as.data.frame(all_output_txt_files)))
+colnames(all_txt_files)[1] = "File name"
+all_txt_files$Format = "Tab separated text"
+
+all_txt_files
+
+```
+
+# Additional information about used software
+
+```{r}
+sessionInfo()
+```
+

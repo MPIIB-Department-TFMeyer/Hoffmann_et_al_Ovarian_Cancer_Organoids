@@ -1,0 +1,65 @@
+---
+title: "OvCa Tumor tissue and organoids - further plots"
+author: "Hilmar Berger"
+output: 
+ html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: false
+    number_sections: true
+    code_folding: hide
+    
+pdf_document:
+    fig_caption: true
+date: "`r format(Sys.time(), '%d %B, %Y %H:%M:%S')`"
+---
+
+
+```{r,  results='hide', messages=FALSE}
+rm(list=ls())
+library(limma)
+#suppressMessages(library(xlsx))
+library(reshape2)
+library(pheatmap)
+suppressMessages(library(data.table))
+library(ggplot2)
+library(naturalsort)
+
+load("../../Data/Processed/Tumor_organoids_micro_array_preprocessed_data.Rdata")
+
+result_folder = "../../Results/GeneExpression"
+if (!file.exists(result_folder)) dir.create(result_folder, recursive=T)
+
+ed = subset(ed, DS_TumorOrganoids == 1)
+```
+
+# Data overview
+
+This document shows additional visualizations of microarray data from OvCa/Fallopian tube tumor/normal tissue and organoids samples (Mirjana Kessler, Karen Hoffmann) using a single-color hybridization. 
+
+Result figures are written to folder `r result_folder` .
+
+# Correlation between samples
+
+## Using all genes
+
+```{r, fig.height=8, fig.width=8}
+cc = cor(normalized$E, method="spearman", use="complete")
+colnames(cc) = ed[colnames(cc), "PublicationID"]
+rownames(cc) = ed[rownames(cc), "PublicationID"]
+```
+
+```{r, fig.height=8, fig.width=8}
+emat = normalized$E[, rownames(subset(ed, Condition=="Organoid"))]
+cc = cor(emat, method="spearman", use="complete")
+colnames(cc) = ed[colnames(cc), "PublicationID"]
+rownames(cc) = ed[rownames(cc), "PublicationID"]
+
+pheatmap(cc, main="Organoids only - Spearman correlation on all genes")
+
+pdf(file=file.path(result_folder, "Heatmap_Spearman_correlation_organoids_only.pdf"), height=8, width = 8)
+pheatmap(cc, main="Organoids only - Spearman correlation on all genes")
+dev.off()
+
+```
+
